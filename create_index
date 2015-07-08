@@ -1,0 +1,57 @@
+#! /usr/bin/python
+import sys
+import os
+import subprocess
+
+
+def format(lines, index, indent):
+    if not lines[index].strip():
+        return '', 0, index + 1
+    count = 0
+    result = ''
+    while index < len(lines):
+        line = lines[index]
+        if num_tabs(line) == indent:
+            if (index + 1 < len(lines) and num_tabs(lines[index + 1]) > indent):
+                rest = format(lines, index + 1, num_tabs(lines[index + 1]))
+                result += '[/Count -' + str(rest[1]) + ' ' + format_line(line)
+                result += rest[0]
+                index = rest[2]
+            else:
+                result += '[' + format_line(line)
+                index += 1
+            count += 1
+        else:
+            return result, count, index
+    return result, count, index
+
+def format_line(line):
+    line = line.strip()
+    split = line.rfind(' ')
+    page = line[split:]
+    title = line[:split].strip()
+    return '/Page ' + page + ' /Title (' + title + ') /OUT pdfmark\n'
+
+def num_tabs(line):
+    tabs = 0
+    while tabs < len(line) and line[tabs] == '\t':
+        tabs += 1
+    return tabs
+
+if __name__ == '__main__':
+	if (len(sys.argv) != 3):
+		print 'Usage: ./index_pdf [index file] [pdf file]'
+		sys.exit(0)
+        index_file = sys.argv[1]
+        pdf_file = sys.argv[2]
+	with open(index_file, 'rt') as f:
+		lines = f.readlines()
+		formatted  = format(lines, 0, 0)
+		with open('pdfmarks', 'w') as w:
+			w.write(formatted[0])
+			w.flush()
+			subprocess.call(["gs", "-dNOPAUSE", "-dBATCH",
+                            "-sDEVICE=pdfwrite", "-sOutputFile=output.pdf",
+                            pdf_file, "pdfmarks"])
+		os.remove('pdfmarks')
+
